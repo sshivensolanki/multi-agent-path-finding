@@ -399,10 +399,9 @@ class CBSSolver(object):
             constraints = disjoint_splitting(collision) if disjoint else standard_splitting(collision)
             # expand one child node per generated constraint
             # child nodes are created in parallel since each re-planning step is independent
-            for c in constraints:
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    futures = [executor.submit(self.expand_child_node, p, c) for c in constraints]
-                    for future in concurrent.futures.as_completed(futures):
-                        child_node = future.result()
-                        if child_node:
-                            self.push_node(child_node)
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [executor.submit(self.expand_child_node, p, c) for c in constraints]
+                for future in concurrent.futures.as_completed(futures):
+                    child_node = future.result()
+                    if child_node:
+                        self.push_node(child_node)
