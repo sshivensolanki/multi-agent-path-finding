@@ -209,10 +209,19 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
         exists, otherwise None.
     """
 
+    # the goal cannot be reached from the start, even ignoring other agents
+    if start_loc not in h_values or my_map[goal_loc[0]][goal_loc[1]]:
+        return None
+
     open_list = []
     closed_list = dict()
     h_value = h_values[start_loc]
     c_table = build_constraint_table(constraints, agent)
+    # once every constraint has passed, the map no longer changes over time,
+    # so any reachable goal can be reached within one visit to each free cell;
+    # searching past this bound can never find a path, only loop forever
+    num_free_cells = sum(not cell for row in my_map for cell in row)
+    max_time = max(c_table.keys(), default=0) + num_free_cells
     root = {'loc': start_loc, 'g_val': 0, 'h_val': h_value, 'parent': None, 'time': 0}
     push_node(open_list, root)
     closed_list[(start_loc, 0)] = root
@@ -222,6 +231,8 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
 
         if curr['loc'] == goal_loc and not is_goal_constrained(goal_loc, curr['time'], c_table):
             return get_path(curr)
+        if curr['time'] >= max_time:
+            continue
         for direction in range(5):
             # directions 0-3: the agent is moving, direction 4: the agent is still
             if direction < 4:
