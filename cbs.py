@@ -217,10 +217,11 @@ def disjoint_splitting(collision):
 def paths_violate_constraint(constraint, paths):
     
     """
-    Return the agents whose paths violate the given positive constraint.
+    Return the other agents whose paths collide with the given positive constraint.
 
     Depending on the constraint type, the check is delegated to either
-    vertex_check() or edge_check().
+    vertex_check() or edge_check(). The constrained agent itself is never
+    reported, since its path is required to satisfy the constraint.
 
     Args:
         constraint (dict): Positive constraint to evaluate.
@@ -238,17 +239,51 @@ def paths_violate_constraint(constraint, paths):
 def vertex_check(constraint, paths):
     agents_violate = []
     for agent in range(len(paths)):
+        if agent == constraint['agent']:
+            continue
         if constraint['loc'][0] == get_location(paths[agent], constraint['timestep']):
             agents_violate.append(agent)
     return agents_violate
 
 def edge_check(constraint, paths):
     agents_violate = []
+    u, v = constraint['loc']
     for agent in range(len(paths)):
-        loc = [get_location(paths[agent], constraint['timestep'] - 1), get_location(paths[agent], constraint['timestep'])]
-        if loc == constraint['loc'] or constraint['loc'][0] == loc[0] or constraint['loc'][1] == loc[1]:
+        if agent == constraint['agent']:
+            continue
+        prev_loc = get_location(paths[agent], constraint['timestep'] - 1)
+        loc = get_location(paths[agent], constraint['timestep'])
+        # occupying either endpoint of the edge, or traversing it in the opposite direction
+        if prev_loc == u or loc == v or (prev_loc == v and loc == u):
             agents_violate.append(agent)
     return agents_violate
+
+
+def negative_constraints_for(constraint, agent):
+    """
+    Convert a positive constraint into the negative constraints it implies
+    for another agent.
+
+    If one agent must be at vertex v at timestep t, no other agent may be
+    at v at t. If one agent must traverse edge (u, v) at timestep t, no
+    other agent may be at u at t - 1, be at v at t, or traverse (v, u) at t.
+
+    Args:
+        constraint (dict): Positive constraint on some agent.
+        agent (int): The other agent to constrain.
+
+    Returns:
+        list: Negative constraints for the given agent.
+    """
+
+    t = constraint['timestep']
+    if len(constraint['loc']) == 1:
+        blocked = [(constraint['loc'], t)]
+    else:
+        u, v = constraint['loc']
+        blocked = [([u], t - 1), ([v], t), ([v, u], t)]
+    return [{'agent': agent, 'loc': loc, 'timestep': timestep, 'positive': False, 'final': False}
+            for loc, timestep in blocked]
 
 
 
@@ -315,12 +350,13 @@ class CBSSolver(object):
 
         # handle positive constraints
         if constraint.get('positive', False):
+            # every other agent must keep clear of the vertex or edge this agent is forced onto
+            for other in range(self.num_of_agents):
+                if other != agent:
+                    q['constraints'].extend(negative_constraints_for(constraint, other))
+            # only agents whose current paths conflict need to be replanned
             violating_agents = paths_violate_constraint(constraint, q['paths'])
             for r_agent in violating_agents:
-                c_new = constraint.copy()
-                c_new['agent'] = r_agent
-                c_new['positive'] = False
-                q['constraints'].append(c_new)
                 r_path = a_star(self.my_map, self.starts[r_agent], self.goals[r_agent],
                                 self.heuristics[r_agent], r_agent, q['constraints'])
                 if r_path is None:

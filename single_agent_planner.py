@@ -108,7 +108,9 @@ def is_constrained(curr_loc, next_loc, next_time, constraint_table):
     Check whether a move violates any constraints at a given timestep.
 
     The function verifies both:
-    - Direct constraints at the target timestep (vertex or edge constraints)
+    - Direct constraints at the target timestep (vertex or edge constraints).
+      A negative constraint forbids the vertex or edge, while a positive
+      constraint requires the agent to be at that vertex or traverse that edge.
     - Persistent constraints from earlier timesteps (e.g., goal/final constraints)
 
     Args:
@@ -124,7 +126,13 @@ def is_constrained(curr_loc, next_loc, next_time, constraint_table):
     if next_time in constraint_table:
         constraints = constraint_table[next_time]
         for c in constraints:
-            if [next_loc] == c['loc'] or [curr_loc, next_loc] == c['loc']:
+            if c['positive']:
+                # any move other than the required vertex or edge is forbidden
+                if len(c['loc']) == 1 and [next_loc] != c['loc']:
+                    return True
+                if len(c['loc']) == 2 and [curr_loc, next_loc] != c['loc']:
+                    return True
+            elif [next_loc] == c['loc'] or [curr_loc, next_loc] == c['loc']:
                 return True
     else:
         constraints = [c for t, c in constraint_table.items() if t < next_time]
@@ -155,7 +163,11 @@ def is_goal_constrained(goal_loc, timestep, constraint_table):
     constraints = [c for t, c in constraint_table.items() if t > timestep]
     constraints = flatten_constraints(constraints)
     for c in constraints:
-        if [goal_loc] == c['loc']:
+        if c['positive']:
+            # staying at the goal only satisfies a positive constraint on the goal itself
+            if [goal_loc] != c['loc']:
+                return True
+        elif [goal_loc] == c['loc']:
             return True
     return False
 
