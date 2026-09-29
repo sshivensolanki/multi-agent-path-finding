@@ -69,7 +69,25 @@ def import_mapf_instance(filename):
         starts.append((sx, sy))
         goals.append((gx, gy))
     f.close()
+    validate_mapf_instance(filename, my_map, starts, goals)
     return my_map, starts, goals
+
+
+def validate_mapf_instance(filename, my_map, starts, goals):
+    # reject instances that no solver could handle, with a message pointing at the problem
+    rows, columns = len(my_map), len(my_map[0]) if my_map else 0
+    for r, row in enumerate(my_map):
+        if len(row) != columns:
+            raise ValueError("{}: map row {} has {} cells, expected {}".format(filename, r, len(row), columns))
+    for kind, locations in (("start", starts), ("goal", goals)):
+        for agent, (x, y) in enumerate(locations):
+            if not (0 <= x < rows and 0 <= y < columns):
+                raise ValueError("{}: agent {} {} {} is outside the {}x{} map".format(
+                    filename, agent, kind, (x, y), rows, columns))
+            if my_map[x][y]:
+                raise ValueError("{}: agent {} {} {} is on an obstacle".format(filename, agent, kind, (x, y)))
+        if len(set(locations)) != len(locations):
+            raise ValueError("{}: two agents share the same {} location".format(filename, kind))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run multi-agent path finding (MAPF) algorithms.")
