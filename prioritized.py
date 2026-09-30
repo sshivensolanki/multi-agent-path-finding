@@ -56,7 +56,7 @@ class PrioritizedPlanningSolver(object):
                         # the agent can't be at the last position to add an edge constraint
                         if time < len(path) - 1:
                             # next location in path
-                            nextloc = path[path.index(loc) + 1]
+                            nextloc = path[time + 1]
                             constraints.append({
                                 'agent': a,
                                 'loc': [nextloc, loc],
