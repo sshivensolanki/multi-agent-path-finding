@@ -123,23 +123,22 @@ def is_constrained(curr_loc, next_loc, next_time, constraint_table):
         bool: True if the move is constrained, False otherwise.
     """
 
-    if next_time in constraint_table:
-        constraints = constraint_table[next_time]
-        for c in constraints:
-            if c['positive']:
-                # any move other than the required vertex or edge is forbidden
-                if len(c['loc']) == 1 and [next_loc] != c['loc']:
-                    return True
-                if len(c['loc']) == 2 and [curr_loc, next_loc] != c['loc']:
-                    return True
-            elif [next_loc] == c['loc'] or [curr_loc, next_loc] == c['loc']:
+    for c in constraint_table.get(next_time, []):
+        if c['positive']:
+            # any move other than the required vertex or edge is forbidden
+            if len(c['loc']) == 1 and [next_loc] != c['loc']:
                 return True
-    else:
-        constraints = [c for t, c in constraint_table.items() if t < next_time]
-        constraints = flatten_constraints(constraints)
-        for c in constraints:
-            if [next_loc] == c['loc'] and c['final']:
+            if len(c['loc']) == 2 and [curr_loc, next_loc] != c['loc']:
                 return True
+        elif [next_loc] == c['loc'] or [curr_loc, next_loc] == c['loc']:
+            return True
+    # a final constraint blocks its location for every later timestep, so it
+    # must be checked even when the current timestep has constraints of its own
+    constraints = [c for t, c in constraint_table.items() if t < next_time]
+    constraints = flatten_constraints(constraints)
+    for c in constraints:
+        if [next_loc] == c['loc'] and c['final']:
+            return True
     return False
 
 
